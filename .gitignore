@@ -1,6 +1,12 @@
 node_modules/
 tmp-build/
 
+# Build artifacts
+tailwind-input.css
+tailwind-output.css
+tailwind.config.js
+build_static.py
+
 # Editor backups
 *~
 *.swp
