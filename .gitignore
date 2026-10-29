@@ -1,3 +1,5 @@
+node_modules/
+tmp-build/
 
 # Editor backups
 *~
@@ -11,6 +13,7 @@ Thumbs.db
 __pycache__/
 *.pyc
 
-# Local scratch
+# Scratch
 *.tmp
+used_classes.txt
 
