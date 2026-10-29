@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>briks — NFC Smart Tag</title>
+  <meta name="description" content="briks NFC Engine 1.0 — Satu tap. Tanpa QR. Tanpa password." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com" defer></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { body: ['Inter','system-ui','sans-serif'] },
+          colors: { pitch:'#000000', obsidian:'#09090B', zinc:{ 850:'#1a1a1e', 925:'#0f0f12' } },
+          animation: { 'fade-in-up':'fadeInUp 0.8s ease-out forwards', 'glow-pulse':'glowPulse 4s ease-in-out infinite' },
+          keyframes: {
+            fadeInUp: { '0%':{ opacity:'0', transform:'translateY(20px)' }, '100%':{ opacity:'1', transform:'translateY(0)' } },
+            glowPulse: { '0%,100%':{ opacity:'0.35', transform:'scale(1)' }, '50%':{ opacity:'0.6', transform:'scale(1.04)' } }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    html { scroll-behavior:smooth; }
+    body { font-family:'Inter',system-ui,sans-serif; background:#09090B; color:#FAFAFA; }
+    .hairline { border:1px solid rgba(255,255,255,0.08); }
+    .hairline-bottom { border-bottom:1px solid rgba(255,255,255,0.08); }
+    .glass { background:rgba(18,18,24,0.6); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,0.08); }
+    .pill { border-radius:9999px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); }
+    .reveal { opacity:0; transform:translateY(24px); transition:opacity 0.8s ease, transform 0.8s ease; }
+    .reveal.visible { opacity:1; transform:translateY(0); }
+    .faq-answer { display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.35s ease, opacity 0.3s ease; opacity:0; }
+    .faq-answer.open { grid-template-rows:1fr; opacity:1; }
+    .faq-answer > div { overflow:hidden; }
+    .card-hover { transition:transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease; }
+    .card-hover:hover { transform:translateY(-3px); box-shadow:0 20px 40px rgba(0,0,0,0.45); border-color:rgba(255,255,255,0.18); }
+    .counter-value { font-variant-numeric:tabular-nums; font-family:'Inter',system-ui,sans-serif; }
+    *:focus-visible { outline:2px solid rgba(255,255,255,0.6); outline-offset:3px; }
+    @media (prefers-reduced-motion:reduce) {
+      *,*::before,*::after { animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; scroll-behavior:auto !important; }
+    }
+    .tilt-card { perspective:1200px; }
+    .tilt-inner { transform-style:preserve-3d; transition:transform 0.18s cubic-bezier(0.2,0.8,0.3,1); will-change:transform; }
+    .tilt-glare { position:absolute; inset:0; pointer-events:none; overflow:hidden; border-radius:inherit; }
+    .tilt-glare::after { content:''; position:absolute; top:-20%; left:-50%; width:200%; height:200%; background:linear-gradient(135deg, rgba(255,255,255,0.25), transparent 60%); transform:rotate(35deg); border-radius:50%; }
+    .tilt-image { transition:opacity 0.3s ease, filter 0.3s ease; }
+    @media (hover:hover) { .tilt-card:hover .tilt-glare { opacity:1; } }
+    @media (pointer:coarse) { .tilt-card,.tilt-inner { transition:none !important; } }
+  </style>
+</head>
+<body class="antialiased">
+  <header id="navbar" class="fixed top-0 left-0 right-0 z-50 border-b border-transparent">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16 lg:h-20">
+        <a href="#" class="flex items-center gap-2 group" aria-label="briks Home">
+          <span class="font-semibold text-lg tracking-tight text-white">briks.</span>
+        </a>
+        <nav class="hidden md:flex items-center gap-8" aria-label="Primary">
+          <a href="#product" class="text-sm text-zinc-400 hover:text-white transition-colors">Product</a>
+          <a href="#features" class="text-sm text-zinc-400 hover:text-white transition-colors">Features</a>
+          <a href="#specs" class="text-sm text-zinc-400 hover:text-white transition-colors">Specs</a>
+          <a href="#faq" class="text-sm text-zinc-400 hover:text-white transition-colors">FAQ</a>
+        </nav>
+        <div class="hidden md:flex items-center gap-3">
+          <a href="#cta" class="inline-flex items-center justify-center rounded-full bg-white text-black px-5 py-2.5 text-sm font-semibold hover:bg-zinc-200 transition-colors">Get briks Tag</a>
+        </div>
+        <button id="menu-toggle" class="md:hidden p-2 -mr-2 text-white" aria-label="Toggle menu" aria-expanded="false">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="mobile-drawer" class="fixed inset-y-0 right-0 w-80 max-w-full bg-zinc-900/95 backdrop-blur-md z-50 md:hidden border-l border-white/5" aria-hidden="true">
+      <div class="p-6 flex flex-col gap-6 h-full">
+        <div class="flex justify-between items-center">
+          <span class="font-semibold text-lg text-white">Menu</span>
+          <button id="menu-close" class="p-2 -mr-2 text-white" aria-label="Close menu">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+        <nav class="flex flex-col gap-3" aria-label="Mobile">
+          <a href="#product" class="mobile-link text-zinc-300 hover:text-white py-2">Product</a>
+          <a href="#features" class="mobile-link text-zinc-300 hover:text-white py-2">Features</a>
+          <a href="#specs" class="mobile-link text-zinc-300 hover:text-white py-2">Specs</a>
+          <a href="#faq" class="mobile-link text-zinc-300 hover:text-white py-2">FAQ</a>
+        </nav>
+        <a href="#cta" class="mobile-link inline-flex items-center justify-center rounded-full bg-white text-black px-5 py-3 font-semibold mt-auto">Get briks Tag</a>
+      </div>
+    </div>
+    <div id="drawer-backdrop" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden md:hidden"></div>
+  </header>
+
+  <main>
+
+
+    <section id="product" class="relative pt-32 pb-20 lg:pt-44 lg:pb-32 overflow-hidden">
+      <div class="absolute inset-0 pointer-events-none" aria-hidden="true">
+        <div class="absolute w-[520px] h-[520px] rounded-full bg-white/5 blur-3xl -top-40 left-1/2 -translate-x-1/2"></div>
+      </div>
+      <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full pill mb-6 animate-fade-in-up">
+          <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+          <span class="text-xs sm:text-sm font-medium text-zinc-300">briks NFC Engine 1.0 — Tap to Connect</span>
+        </div>
+        <h1 class="font-semibold text-4xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tight leading-[1.08] mb-5 animate-fade-in-up" style="animation-delay:0.1s">
+          Satu Tap. Tanpa QR. Tanpa Password.
+        </h1>
+        <p class="max-w-2xl mx-auto text-base sm:text-lg text-zinc-400 leading-relaxed mb-10 animate-fade-in-up" style="animation-delay:0.2s">
+          Cara paling ringkas menyajikan menu digital dan koneksi Wi-Fi di meja bisnismu. Tempelkan smartphone, semua langsung terbuka.
+        </p>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 animate-fade-in-up" style="animation-delay:0.3s">
+          <a href="#cta" class="inline-flex items-center justify-center rounded-full bg-white text-black px-6 py-3 text-sm sm:text-base font-semibold hover:bg-zinc-200 transition-colors">Pesan Sekarang</a>
+          <a href="#specs" class="inline-flex items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 text-zinc-200 px-6 py-3 text-sm sm:text-base font-medium hover:border-zinc-700 transition-colors">Lihat Demo</a>
+        </div>
+        <div class="mt-16 lg:mt-24">
+          <div class="tilt-card" style="perspective:1200px">
+            <div id="hero-tilt" class="tilt-inner relative rounded-2xl hairline overflow-hidden bg-zinc-900/40">
+              <div class="aspect-video relative">
+                <img src="assets/nfctagmodel.jpeg" alt="Minimalist product" class="tilt-image w-full h-full object-cover opacity-70" loading="eager" />
+                <div class="tilt-glare absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-0 transition-opacity duration-300"></div>
+                <div class="absolute inset-0 bg-gradient-to-t from-obsidian/90 via-obsidian/20 to-transparent"></div>
+                <div class="absolute bottom-6 left-6 right-6 flex items-end justify-between">
+                  <div>
+                    <p class="text-xs text-zinc-300 font-medium tracking-wider uppercase mb-1">Display Block</p>
+                    <p class="text-white font-semibold text-lg sm:text-xl">briks NFC Engine 1.0</p>
+                  </div>
+                  <span class="hidden sm:inline-flex items-center gap-2 text-sm text-zinc-300">Lihat cara kerja <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="specs" class="relative py-20 lg:py-32">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center max-w-3xl mx-auto mb-14 reveal">
+          <p class="text-xs font-medium text-zinc-400 tracking-wider uppercase mb-3">Live Comparison</p>
+          <h2 class="font-semibold text-3xl sm:text-4xl lg:text-5xl mb-4 tracking-tight">briks NFC vs QR Code</h2>
+          <p class="text-zinc-400 text-base sm:text-lg">Perbedaan yang terasa saat meja penuh, pencahayaan kurang, dan pelanggan ingin cepat.</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 reveal">
+          <div class="rounded-2xl hairline bg-zinc-900/30 p-6 sm:p-8">
+            <p class="text-sm font-medium text-zinc-300 mb-1">QR Code Konvensional</p>
+            <p class="text-xs text-zinc-500 mb-5">Flow lama yang tidak andal</p>
+            <ul class="space-y-3 text-sm text-zinc-400">
+              <li>Butuh buka kamera dan fokus manual.</li>
+              <li>Sensitivitas pencahayaan — kontras harus tepat.</li>
+              <li>Stiker mudah lepas/terkelupas, kotor, atau pecah.</li>
+              <li>Link static — harus diganti kalau menu berubah.</li>
+            </ul>
+          </div>
+          <div class="rounded-2xl hairline bg-zinc-900/30 p-6 sm:p-8">
+            <div class="flex items-center justify-between mb-1">
+              <p class="text-sm font-medium text-white">briks NFC Tag</p>
+              <span class="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-zinc-200">Recommended</span>
+            </div>
+            <p class="text-xs text-zinc-500 mb-5">Satu tap, tanpa hambatan</p>
+            <ul class="space-y-3 text-sm text-zinc-300">
+              <li>Respon &lt; 0.5 detik — tanpa kamera dan aplikasi khusus.</li>
+              <li>Material solid, anti air, dan tahan gores.</li>
+              <li>Tanpa baterai — hanya pasang dan pakai.</li>
+              <li>URL bisa diperbarui kapan saja tanpa ganti tag.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    <section id="features" class="relative py-20 lg:py-32">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center max-w-3xl mx-auto mb-14 reveal">
+          <p class="text-xs font-medium text-zinc-400 tracking-wider uppercase mb-3">Core Features</p>
+          <h2 class="font-semibold text-3xl sm:text-4xl lg:text-5xl mb-4 tracking-tight">Fitur yang benar-benar berguna</h2>
+          <p class="text-zinc-400 text-base sm:text-lg">Dirancang untuk kecepatan, ketahanan, dan kemudahan pengaturan.</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 reveal">
+          <div class="rounded-2xl hairline bg-zinc-900/30 p-6 card-hover">
+            <div class="w-10 h-10 rounded-lg bg-zinc-800/70 flex items-center justify-center mb-4">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            </div>
+            <h3 class="font-semibold text-white mb-1">Instant Menu Access</h3>
+            <p class="text-sm text-zinc-400 leading-relaxed">Buka menu digital langsung saat tap, tanpa app tambahan.</p>
+          </div>
+          <div class="rounded-2xl hairline bg-zinc-900/30 p-6 card-hover">
+            <div class="w-10 h-10 rounded-lg bg-zinc-800/70 flex items-center justify-center mb-4">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/></svg>
+            </div>
+            <h3 class="font-semibold text-white mb-1">One-Tap Wi-Fi</h3>
+            <p class="text-sm text-zinc-400 leading-relaxed">Koneksi otomatis tanpa ketik password di meja.</p>
+          </div>
+          <div class="rounded-2xl hairline bg-zinc-900/30 p-6 card-hover">
+            <div class="w-10 h-10 rounded-lg bg-zinc-800/70 flex items-center justify-center mb-4">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </div>
+            <h3 class="font-semibold text-white mb-1">Google Review Redirect</h3>
+            <p class="text-sm text-zinc-400 leading-relaxed">Arahkan pelanggan langsung ke ulasan Google dengan sekali tap.</p>
+          </div>
+          <div class="rounded-2xl hairline bg-zinc-900/30 p-6 card-hover">
+            <div class="w-10 h-10 rounded-lg bg-zinc-800/70 flex items-center justify-center mb-4">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <h3 class="font-semibold text-white mb-1">Zero Battery / Zero Maintenance</h3>
+            <p class="text-sm text-zinc-400 leading-relaxed">Tanpa baterai, tanpa pengisian, tanpa gangguan harian.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="relative py-20 lg:py-32 border-t border-white/5">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center max-w-3xl mx-auto mb-14 reveal">
+          <p class="text-xs font-medium text-zinc-400 tracking-wider uppercase mb-3">How It Works</p>
+          <h2 class="font-semibold text-3xl sm:text-4xl lg:text-5xl mb-4 tracking-tight">Tiga langkah. Selesai dalam 2 menit.</h2>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 reveal">
+          <div class="rounded-2xl hairline bg-zinc-900/30 p-6">
+            <p class="text-xs font-medium text-zinc-500 mb-3">01</p>
+            <h3 class="font-semibold text-white mb-2">Pasang Tag</h3>
+            <p class="text-sm text-zinc-400 leading-relaxed">Tempel briks NFC Tag di meja, standing banner, atau menu board.</p>
+          </div>
+          <div class="rounded-2xl hairline bg-zinc-900/30 p-6">
+            <p class="text-xs font-medium text-zinc-500 mb-3">02</p>
+            <h3 class="font-semibold text-white mb-2">Hubungkan Konten</h3>
+            <p class="text-sm text-zinc-400 leading-relaxed">Atur URL menu, Wi-Fi, atau review di dashboard briks.</p>
+          </div>
+          <div class="rounded-2xl hairline bg-zinc-900/30 p-6">
+            <p class="text-xs font-medium text-zinc-500 mb-3">03</p>
+            <h3 class="font-semibold text-white mb-2">Siap Digunakan</h3>
+            <p class="text-sm text-zinc-400 leading-relaxed">Pelanggan tap sekali — konten langsung terbuka di browser.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq" class="relative py-20 lg:py-32 border-t border-white/5">
+      <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12 reveal">
+          <p class="text-xs font-medium text-zinc-400 tracking-wider uppercase mb-3">FAQ</p>
+          <h2 class="font-semibold text-3xl sm:text-4xl lg:text-5xl mb-4 tracking-tight">Pertanyaan Teknis</h2>
+          <p class="text-zinc-400 text-base sm:text-lg">Yang sering ditanyakan sebelum setup pertama.</p>
+        </div>
+        <div class="flex flex-col reveal">
+          <div class="faq-item hairline rounded-2xl overflow-hidden">
+            <button class="faq-toggle w-full flex items-center justify-between p-5 sm:p-6 text-left" aria-expanded="false">
+              <span class="font-medium text-white pr-4">Apakah kompatibel dengan iPhone dan Android?</span>
+              <svg class="faq-icon w-5 h-5 text-zinc-400 transition-transform duration-300 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <div class="faq-answer"><div>
+              <p class="px-5 sm:px-6 pb-5 sm:pb-6 text-sm text-zinc-400 leading-relaxed">Ya. Tag mendukung NFC Data Exchange format standar dan terbaca oleh iOS 11+ serta Android 4.0+.</p>
+            </div></div>
+          </div>
+          <div class="faq-item hairline rounded-2xl overflow-hidden">
+            <button class="faq-toggle w-full flex items-center justify-between p-5 sm:p-6 text-left" aria-expanded="false">
+              <span class="font-medium text-white pr-4">Bagaimana cara update menu atau link?</span>
+              <svg class="faq-icon w-5 h-5 text-zinc-400 transition-transform duration-300 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <div class="faq-answer"><div>
+              <p class="px-5 sm:px-6 pb-5 sm:pb-6 text-sm text-zinc-400 leading-relaxed">Login ke dashboard briks, edit URL tujuan, dan publish. Perubahan aktif dalam 30 detik.</p>
+            </div></div>
+          </div>
+          <div class="faq-item hairline rounded-2xl overflow-hidden">
+            <button class="faq-toggle w-full flex items-center justify-between p-5 sm:p-6 text-left" aria-expanded="false">
+              <span class="font-medium text-white pr-4">Seberapa tahan tag di area makan?</span>
+              <svg class="faq-icon w-5 h-5 text-zinc-400 transition-transform duration-300 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <div class="faq-answer"><div>
+              <p class="px-5 sm:px-6 pb-5 sm:pb-6 text-sm text-zinc-400 leading-relaxed">Material ABS+tahan air, suhu operasi -20C hingga 60C, dan daya tahan goresan tinggi.</p>
+            </div></div>
+          </div>
+          <div class="faq-item hairline rounded-2xl overflow-hidden">
+            <button class="faq-toggle w-full flex items-center justify-between p-5 sm:p-6 text-left" aria-expanded="false">
+              <span class="font-medium text-white pr-4">Apakah butuh aplikasi untuk pelanggan?</span>
+              <svg class="faq-icon w-5 h-5 text-zinc-400 transition-transform duration-300 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <div class="faq-answer"><div>
+              <p class="px-5 sm:px-6 pb-5 sm:pb-6 text-sm text-zinc-400 leading-relaxed">Tidak. Pelanggan cukup tap dan browser akan membuka halaman tujuan secara otomatis.</p>
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="cta" class="relative py-24 lg:py-36 overflow-hidden border-t border-white/5">
+      <div class="absolute inset-0 pointer-events-none" aria-hidden="true">
+        <div class="absolute w-[560px] h-[560px] rounded-full bg-white/5 blur-3xl top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
+      </div>
+      <div class="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center reveal">
+        <h2 class="font-semibold text-3xl sm:text-4xl lg:text-6xl mb-5 tracking-tight leading-tight">Tinggalkan QR. Pakai satu tap.</h2>
+        <p class="text-zinc-400 text-base sm:text-lg max-w-2xl mx-auto mb-9">briks NFC Engine 1.0 siap dikirim ke lokasimu. Tanpa instalasi rumit, tanpa perawatan.</p>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <a href="#" class="inline-flex items-center justify-center rounded-full bg-white text-black px-7 py-3.5 text-sm sm:text-base font-semibold hover:bg-zinc-200 transition-colors w-full sm:w-auto">Pesan Sekarang</a>
+          <a href="#faq" class="inline-flex items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 text-zinc-200 px-7 py-3.5 text-sm sm:text-base font-medium hover:border-zinc-700 transition-colors w-full sm:w-auto">Tanya Dulu</a>
+        </div>
+        <p class="text-xs text-zinc-500 mt-6">Gratis konsultasi setup untuk 30 hari pertama.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-white/5 py-12 lg:py-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-10">
+        <div class="md:col-span-2">
+          <a href="#" class="flex items-center gap-2 mb-4">
+            <div class="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            </div>
+            <span class="font-semibold text-lg tracking-tight text-white">briks</span>
+          </a>
+          <p class="text-sm text-zinc-400 leading-relaxed max-w-sm">NFC smart tag dan display block untuk kafe, restoran, dan bisnis. Instan, tanpa scan, tanpa password.</p>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">Navigasi</p>
+          <ul class="space-y-2">
+            <li><a href="#product" class="text-sm text-zinc-400 hover:text-white transition-colors">Product</a></li>
+            <li><a href="#features" class="text-sm text-zinc-400 hover:text-white transition-colors">Features</a></li>
+            <li><a href="#specs" class="text-sm text-zinc-400 hover:text-white transition-colors">Specs</a></li>
+            <li><a href="#faq" class="text-sm text-zinc-400 hover:text-white transition-colors">FAQ</a></li>
+          </ul>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">Kontak</p>
+          <ul class="space-y-2">
+            <li><a href="#" class="text-sm text-zinc-400 hover:text-white transition-colors">WhatsApp</a></li>
+            <li><a href="#" class="text-sm text-zinc-400 hover:text-white transition-colors">Email</a></li>
+            <li><a href="#" class="text-sm text-zinc-400 hover:text-white transition-colors">Dokumentasi</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="mt-12 pt-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <p class="text-xs text-zinc-500">© 2025 briks. All rights reserved.</p>
+        <p class="text-xs text-zinc-500 font-mono">NFC Engine 1.0</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var navbar = document.getElementById('navbar');
+      var onScroll = function () {
+        if (window.scrollY > 20) {
+          navbar.style.background = 'rgba(9,9,11,0.85)';
+          navbar.style.borderBottomColor = 'rgba(255,255,255,0.08)';
+          navbar.style.backdropFilter = 'blur(14px)';
+        } else {
+          navbar.style.background = 'transparent';
+          navbar.style.borderBottomColor = 'transparent';
+          navbar.style.backdropFilter = 'none';
+        }
+      };
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+
+      var menuToggle = document.getElementById('menu-toggle');
+      var menuClose = document.getElementById('menu-close');
+      var drawer = document.getElementById('mobile-drawer');
+      var backdrop = document.getElementById('drawer-backdrop');
+      var mobileLinks = document.querySelectorAll('.mobile-link');
+
+      function openDrawer() {
+        drawer.style.transform = 'translateX(0)';
+        drawer.setAttribute('aria-hidden', 'false');
+        menuToggle.setAttribute('aria-expanded', 'true');
+        backdrop.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+      }
+      function closeDrawer() {
+        drawer.style.transform = 'translateX(100%)';
+        drawer.setAttribute('aria-hidden', 'true');
+        menuToggle.setAttribute('aria-expanded', 'false');
+        backdrop.classList.add('hidden');
+        document.body.style.overflow = '';
+      }
+      menuToggle.addEventListener('click', openDrawer);
+      menuClose.addEventListener('click', closeDrawer);
+      backdrop.addEventListener('click', closeDrawer);
+      mobileLinks.forEach(function (link) { link.addEventListener('click', closeDrawer); });
+
+      document.querySelectorAll('.faq-toggle').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var item = btn.closest('.faq-item');
+          var answer = item.querySelector('.faq-answer');
+          var icon = btn.querySelector('.faq-icon');
+          var isOpen = answer.classList.contains('open');
+          document.querySelectorAll('.faq-item').forEach(function (other) {
+            other.querySelector('.faq-answer').classList.remove('open');
+            other.querySelector('.faq-toggle').setAttribute('aria-expanded', 'false');
+            other.querySelector('.faq-icon').style.transform = 'rotate(0deg)';
+          });
+          if (!isOpen) {
+            answer.classList.add('open');
+            btn.setAttribute('aria-expanded', 'true');
+            icon.style.transform = 'rotate(45deg)';
+          }
+        });
+      });
+
+      var tiltCard = document.querySelector('.tilt-card');
+      if (tiltCard) {
+        var inner = tiltCard.querySelector('.tilt-inner');
+        var glare = tiltCard.querySelector('.tilt-glare');
+        var img = tiltCard.querySelector('.tilt-image');
+        var maxTilt = 6;
+        var smoothing = 0.12;
+        var current = { x: 0, y: 0 };
+        var target = { x: 0, y: 0 };
+        var raf = null;
+
+        function lerp(a, b, t) { return a + (b - a) * t; }
+        function reset() { target.x = 0; target.y = 0; if (raf) cancelAnimationFrame(raf); raf = null; }
+        function animate() {
+          current.x = lerp(current.x, target.x, smoothing);
+          current.y = lerp(current.y, target.y, smoothing);
+          if (Math.abs(current.x - target.x) < 0.01 && Math.abs(current.y - target.y) < 0.01) {
+            current.x = target.x; current.y = target.y;
+          }
+          inner.style.transform = 'rotateY(' + current.x.toFixed(2) + 'deg) rotateX(' + (-current.y).toFixed(2) + 'deg)';
+          if (glare) {
+            var gx = 50 + (current.x / maxTilt) * 35;
+            var gy = 50 + (-current.y / maxTilt) * 35;
+            glare.style.background = 'linear-gradient(' + gx.toFixed(1) + 'deg, rgba(255,255,255,0.22), transparent 60%)';
+            glare.style.opacity = (Math.abs(current.x) + Math.abs(current.y) > 0.05) ? '1' : '0';
+          }
+          if (img) {
+            var scale = 1 + (Math.abs(current.x) + Math.abs(current.y)) / maxTilt * 0.04;
+            img.style.transform = 'scale(' + scale.toFixed(3) + ')';
+          }
+          if (current.x !== target.x || current.y !== target.y) { raf = requestAnimationFrame(animate); } else { raf = null; }
+        }
+        function handleMove(cx, cy, rect) {
+          target.x = ((cx - rect.left) / rect.width - 0.5) * maxTilt * 2;
+          target.y = ((cy - rect.top) / rect.height - 0.5) * maxTilt * 2;
+          if (!raf) raf = requestAnimationFrame(animate);
+        }
+        tiltCard.addEventListener('mousemove', function (e) { handleMove(e.clientX, e.clientY, tiltCard.getBoundingClientRect()); });
+        tiltCard.addEventListener('touchmove', function (e) { if (e.touches.length === 1) handleMove(e.touches[0].clientX, e.touches[0].clientY, tiltCard.getBoundingClientRect()); }, { passive: true });
+        tiltCard.addEventListener('mouseleave', function () { reset(); raf = requestAnimationFrame(animate); });
+        tiltCard.addEventListener('touchend', function () { reset(); raf = requestAnimationFrame(animate); });
+      }
+
+      var revealElements = document.querySelectorAll('.reveal');
+      if ('IntersectionObserver' in window) {
+        var revealObserver = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) { if (entry.isIntersecting) { entry.target.classList.add('visible'); revealObserver.unobserve(entry.target); } });
+        }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+        revealElements.forEach(function (el) { revealObserver.observe(el); });
+      } else {
+        revealElements.forEach(function (el) { el.classList.add('visible'); });
+      }
+    })();
+  </script>
+</body>
+</html>
