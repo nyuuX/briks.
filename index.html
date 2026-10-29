@@ -34,12 +34,18 @@
       *,*::before,*::after { animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; scroll-behavior:auto !important; }
     }
     .tilt-card { perspective:1200px; }
-    .tilt-inner { transform-style:preserve-3d; transition:transform 0.18s cubic-bezier(0.2,0.8,0.3,1); will-change:transform; }
+    .tilt-inner { transform-style:preserve-3d; transition:transform 0.18s cubic-bezier(0.2,0.8,0.3,1); will-change:transform; backface-visibility:hidden; transform:translateZ(0); }
     .tilt-glare { position:absolute; inset:0; pointer-events:none; overflow:hidden; border-radius:inherit; }
     .tilt-glare::after { content:''; position:absolute; top:-20%; left:-50%; width:200%; height:200%; background:linear-gradient(135deg, rgba(255,255,255,0.25), transparent 60%); transform:rotate(35deg); border-radius:50%; }
-    .tilt-image { transition:opacity 0.3s ease, filter 0.3s ease; }
+    .tilt-image { transition:opacity 0.3s ease, filter 0.3s ease; backface-visibility:hidden; transform:translateZ(0); }
     @media (hover:hover) { .tilt-card:hover .tilt-glare { opacity:1; } }
     @media (pointer:coarse) { .tilt-card,.tilt-inner { transition:none !important; } }
+    .reveal { opacity:0; transform:translateY(24px); transition:opacity 0.8s ease, transform 0.8s ease; will-change:transform,opacity; backface-visibility:hidden; transform:translateZ(0); }
+    .reveal.visible { opacity:1; transform:translateY(0); }
+    .card-hover { transition:transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease; will-change:transform; backface-visibility:hidden; transform:translateZ(0); }
+    .faq-answer { display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.35s ease, opacity 0.3s ease; opacity:0; }
+    .faq-answer.open { grid-template-rows:1fr; opacity:1; }
+    .faq-answer > div { overflow:hidden; }
   </style>
 </head>
 <body class="antialiased">
